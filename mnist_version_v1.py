@@ -48,11 +48,11 @@ def train(mnist):
     variable_averages_op = variable_averages.apply(tf.trainable_variables())
     # 
     average_y = inference(x,variable_averages,weights1,biases1,weights2,biases2)
-    cross_entropy = tf.nn.sparse_softmax_cross_entropy_with_logits(labels=y,logits=tf.argmax(y_,1))
+    cross_entropy = tf.nn.sparse_softmax_cross_entropy_with_logits(logits=y,labels=tf.argmax(y_,1))
     
     cross_entropy_mean = tf.reduce_mean(cross_entropy)
     
-    regularizer = tf.contrib.layers.l2_reglularizer(REGULARIZATION_RATE)
+    regularizer = tf.contrib.layers.l2_regularizer(REGULARIZATION_RATE)
     regularization = regularizer(weights1) + regularizer(weights2)
     loss = cross_entropy_mean + regularization
     
@@ -65,23 +65,26 @@ def train(mnist):
                    .minimize(loss,global_step=global_step)
     with tf.control_dependencies([train_step,variable_averages_op]):
         train_op = tf.no_op(name="train") #
+        
+    #correct_prediction = tf.equal(tf.argmax(average_y,1),tf.argmax(y_,1))
     correct_prediction = tf.equal(tf.argmax(average_y,1),tf.argmax(y_,1))
-    
     accuracy = tf.reduce_mean(tf.cast(correct_prediction,tf.float32))
     
     with tf.Session() as sess:
         tf.initialize_all_variables().run()
         validate_feed = {x :mnist.validation.images,
-                         y_: mnist.validation.lables}
-        test_feed = {x: mnist.test.images,y_:minst.test.lables}
+                         y_: mnist.validation.labels}
+        test_feed = {x: mnist.test.images,y_:mnist.test.labels}
         
         for i in range(TRAINING_STEPS):
             if i % 1000 == 0:
                 validate_acc = sess.run(accuracy,feed_dict=validate_feed)
-                print ("After %d training step(s), vlaidation accuracy"
+                print ("After %d training step(s), vlaidation accuracy "
                        "using average model is %g" % (i,validate_acc))
+            xs,ys = mnist.train.next_batch(BATCH_SIZE)
+            sess.run(train_op,feed_dict={x:xs,y_:ys})
         test_acc = sess.run(accuracy,feed_dict=test_feed)
-        print ("After %d training step(s), vlaidation accuracy"
+        print ("After %d training step(s), vlaidation accuracy "
                "using average model is %g" % (TRAINING_STEPS,test_acc))
 def main(argv = None):
     mnist = input_data.read_data_sets("/home/dev/code/mnist",one_hot = True)
