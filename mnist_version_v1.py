@@ -22,11 +22,13 @@ MOVING_AVERAGE_DECAY = 0.99
 
 def inference(input_tensor,avg_class,weights1,biases1,weights2,biases2):
     # if there is no ExponentialMovingAverage
+    print "debug"
     if avg_class == None:
       
         layer1 = tf.nn.relu(tf.matmul(input_tensor,weights1) + biases1)
         return tf.matmul(layer1,weights2) + biases2
     else:
+        #debug
         layer1 = tf.nn.relu(tf.matmul(input_tensor,avg_class.average(weights1)) + avg_class.average(biases1))
         return tf.matmul(layer1,avg_class.average(weights2)) + avg_class.average(biases2)
 
@@ -81,10 +83,15 @@ def train(mnist):
                 validate_acc = sess.run(accuracy,feed_dict=validate_feed)
                 print ("After %d training step(s), vlaidation accuracy "
                        "using average model is %g" % (i,validate_acc))
+                
+                test_acc = sess.run(accuracy,feed_dict=test_feed)
+                print ("After %d training step(s), test accuracy "
+                       "using average model is %g" % (TRAINING_STEPS,test_acc))
             xs,ys = mnist.train.next_batch(BATCH_SIZE)
             sess.run(train_op,feed_dict={x:xs,y_:ys})
+
         test_acc = sess.run(accuracy,feed_dict=test_feed)
-        print ("After %d training step(s), vlaidation accuracy "
+        print ("After %d training step(s), test accuracy "
                "using average model is %g" % (TRAINING_STEPS,test_acc))
 def main(argv = None):
     mnist = input_data.read_data_sets("/home/dev/code/mnist",one_hot = True)
