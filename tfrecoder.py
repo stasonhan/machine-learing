@@ -49,6 +49,7 @@ def convert_to(data_set, name):
   writer.close()
 
 def main(argv):
+  import pdb;pdb.set_trace()
   # Get the data.
   data_sets = mnist.read_data_sets(FLAGS.directory,
                                    dtype=tf.uint8,
