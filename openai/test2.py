@@ -68,7 +68,17 @@ def basic_policy(n_inputs):
                         break
                 all_rewards.append(current_rewards)
                 all_gradients.append(current_rewards)
-            
+            for var_index,grad_placeholder in enumerate(gradient_placeholders):
+                mean_gradients = np.mean(
+                                 [reward * all_gradients[game_index][step][var_index] 
+                                  for game_index,rewards in enumerate(all_rewards) 
+                                  for step,reward in enumerate(rewards)],
+                                 axis = 0)
+                feed_dict[grad_placeholder] = mean_gradients
+            sess.run(training_op, feed_dict=feed_dict)
+
+            if iteration % save_iterations == 0:
+                saver.save(sess, "./my_policy_net_pg.ckpt")
             
 def discount_rewards(rewards, discount_rate):
     discounted_rewards = np.empty(len(rewards))
@@ -79,10 +89,14 @@ def discount_rewards(rewards, discount_rate):
     return discounted_rewards
 
 def discount_and_normalize_rewards(all_rewards, discount_rate):
+    import pdb;pbd.set_trace()
     all_discounted_rewards = [discount_rewards(rewards,discount_rate) \
                                for rewards in all_rewards]
     flat_rewards = np.concatenate(all_discounted_rewards)
     reward_mean = flat_rewards.mean()
     reward_std = flat_rewards.std()
     return [(discounted_rewards - reward_mean)/reward_std
-    for discounted_rewards in all_discounted_rewards]
+            for discounted_rewards in all_discounted_rewards]
+
+if __name__ == "__main__":
+    discount_and_normalize_rewards([[10, 0, -50], [10, 20]], discount_rate=0.8)

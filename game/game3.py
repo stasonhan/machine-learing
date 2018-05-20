@@ -136,6 +136,7 @@ def train_neural_network(input_image):
     image = cv2.cvtColor(cv2.resize(image, (100, 80)), cv2.COLOR_BGR2GRAY)
     # 
     ret, image = cv2.threshold(image, 1, 255, cv2.THRESH_BINARY)
+    import pdb;pdb.set_trace()
     input_image_data = np.stack((image, image, image, image), axis=2)
 
     with tf.Session() as sess:

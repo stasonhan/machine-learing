@@ -14,8 +14,22 @@ y = tf.matmul(a,W2)
 
 
 cross_entropy = -tf.reduce_mean(y_ * tf.log(tf.clip_by_value(y,1e-10,1.0)))
-train_step = tf.train.AdamOptimizer(0.001).minimize(cross_entropy)
+optimizer = tf.train.AdamOptimizer(0.001)
+#train_step = tf.train.AdamOptimizer(0.001).minimize(cross_entropy)
+grads_and_vars = optimizer.compute_gradients(cross_entropy)
 
+gradient_placeholders = []
+grads_and_vars_feed = []
+
+for grad, variable in grads_and_vars:
+    gradient_placeholder = tf.placeholder(tf.float32, shape=grad.get_shape())
+    gradient_placeholders.append(gradient_placeholder)
+    grads_and_vars_feed.append((gradient_placeholder, variable))
+
+training_op = optimizer.apply_gradients(grads_and_vars_feed)
+init = tf.global_variables_initializer()
+
+                      
 rdm = RandomState(1)
 
 dataset_size = 128
@@ -33,7 +47,8 @@ with tf.Session() as sess:
     for i in range(STEPS):
         start = (i * batch_size) % dataset_size
         end = min(start + batch_size,dataset_size) 
-        sess.run(train_step,feed_dict={x:X[start:end],y_:Y[start:end]})
+        #sess.run(train_step,feed_dict={x:X[start:end],y_:Y[start:end]})
+        sess.run(training_op,feed_dict={x:X[start:end],y_:Y[start:end]})
         if i % 1000 == 0:
            total_cross_entropy = sess.run(cross_entropy,feed_dict={x:X,y_:Y})
            print ("After %d training steps cross entropy on all data is %g" %(i,total_cross_entropy))
