@@ -34,6 +34,8 @@ class Demo(object):
         self.space = pymunk.Space()
         self.space.gravity=Vec2d((0.,0.))
         self.create_plane(0, 0, 0.5)
+        self.plane_pre_position=Vec2d((0,0))
+        
         self.num_steps = 0
         static = [
             pymunk.Segment(
@@ -101,6 +103,34 @@ class Demo(object):
         self.space.add(c_body, c_shape)
         return c_body
     
+    def plane_is_crashed(self, readings):
+        if readings[0] == 1 or readings[1] == 1 or readings[2] == 1:
+            return True
+        else:
+            return False 
+           
+    def reached_target(self,reading_target):
+        if True in reading_target:
+            return True
+        else: return False
+        
+    def recover_from_crash(self, flying_direction):
+        """
+        We hit something, so recover.
+        """
+        while self.crashed:
+            # Go backwards.
+            self.plane_body.velocity = -100 * flying_direction
+            self.crashed = False
+            for i in range(10):
+                self.plane_body.angle += .2  # Turn a little.
+                screen.fill(THECOLORS["red"])  # Red is scary!
+                draw(screen, self.space)
+                self.space.step(1./10)
+                if draw_screen:
+                    pygame.display.flip()
+                clock.tick()
+
     def move_obstacles(self):
         # Randomly move obstacles around.
         for obstacle in self.obstacles:
@@ -109,7 +139,6 @@ class Demo(object):
             obstacle.velocity = speed * direction
                         
     def frame_step(self,action):
-        self.num_steps += 1
         if action == 0:
             self.plane_body.angle -= .2
         elif action == 1:
@@ -138,20 +167,40 @@ class Demo(object):
             pygame.display.flip()
         clock.tick()
         x,y = self.plane_body.position
-        readings,readings_position = self.get_sonar_readings(x,y,self.plane_body.angle)
-        #print (readings,readings_position)
+        readings,readings_position,reading_target = self.get_sonar_readings(x,y,self.plane_body.angle)
+        if self.reached_target(reading_target):
+            self.rearched = True
+            reward += 500
+        elif self.plane_is_crashed(readings):
+            self.crashed = True
+            reward = -500
+            self.recover_from_crash(flying_direction)
+        else:
+            # Higher readings are better, so return the sum.
+            reward = -5 + int(self.sum_readings(readings) / 10)
+        self.num_steps += 1
+        print (self.plane_pre_position,self.plane_body.position)
         #if 1 in readings:
         #    print("reached the target!")
+        
         if self.num_steps % 100 == 0:
-            print (self.num_steps)
             self.move_obstacles() 
         
+    def sum_readings(self, readings):
+        """Sum the number of non-zero readings."""
+        tot = 0
+        for i in readings:
+            tot += i
+        return tot  
+         
     def get_sonar_readings(self,x,y,angle):
         readings = []
         readings_position = []
         arm_left = self.make_sonar_arm(x, y)
         arm_middle = arm_left
         arm_right = arm_left
+        
+        readings_target = []
 
         # Rotate them and get readings.
         #readings is the sonar number
@@ -164,10 +213,14 @@ class Demo(object):
         readings_position.append(self.get_arm_distance(arm_middle, x, y, angle, 0)[1])
         readings_position.append(self.get_arm_distance(arm_right, x, y, angle, -0.75)[1])
         
+        readings_target.append(self.get_arm_distance(arm_left, x, y, angle, 0.75)[2])
+        readings_target.append(self.get_arm_distance(arm_left, x, y, angle, 0)[2])
+        readings_target.append(self.get_arm_distance(arm_left, x, y, angle, -0.75)[2])
+        
         if show_sensors:
             pygame.display.update()
 
-        return readings,readings_position
+        return readings,readings_position,readings_target
     
     def make_sonar_arm(self, x, y):
         spread = 10  # Default spread.
@@ -185,34 +238,33 @@ class Demo(object):
         i = 0
         # Look at each point and see if we've hit something.
         for point in arm:
-            i += 1
-            #import pdb;pdb.set_trace()
+            i += 1            
             # Move the point to the right spot.
             rotated_p = self.get_rotated_point(
                 x, y, point[0], point[1], angle + offset
             )
-
             # Check if we've hit something. Return the current i (distance)
             # if we did.
             if rotated_p[0] <= 0 or rotated_p[1] <= 0 \
                     or rotated_p[0] >= WIDTH or rotated_p[1] >= HEIGHT:
-                return i,rotated_p  # Sensor is off the screen.
+                
+                return i,rotated_p,False  # Sensor is off the screen.
             else:
                 obs = screen.get_at(rotated_p)
                 if self.get_track_or_not(obs) == 1:
-                    import pdb;pdb.set_trace()
-                    print (i,rotated_p)
-                    return i,rotated_p
+                    
+                    return i,rotated_p,False
                     
                 elif self.get_track_or_not(obs) == -1:
-                    #import pdb;pdb.set_trace()
-                    return i,rotated_p
+                    if i==1:
+                        return i,rotated_p,True
+                    else: return i,rotated_p,False
 
             if show_sensors:
                 pygame.draw.circle(screen, (255, 255, 255), (rotated_p), 2)
 
         # Return the distance for the arm.
-        return i,rotated_p
+        return i,rotated_p,False
     def get_rotated_point(self, x_1, y_1, x_2, y_2, radians):
         # Rotate x_2, y_2 around x_1, y_1 by angle.
         x_change = (x_2 - x_1) * math.cos(radians) + \
