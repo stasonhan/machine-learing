@@ -136,7 +136,7 @@ def train_neural_network(input_image):
     image = cv2.cvtColor(cv2.resize(image, (100, 80)), cv2.COLOR_BGR2GRAY)
     # 
     ret, image = cv2.threshold(image, 1, 255, cv2.THRESH_BINARY)
-    import pdb;pdb.set_trace()
+    
     input_image_data = np.stack((image, image, image, image), axis=2)
 
     with tf.Session() as sess:
@@ -173,7 +173,7 @@ def train_neural_network(input_image):
             if len(D) > REPLAY_MEMORY:
                 D.popleft()
 
-            if n > OBSERVE:
+            if n > 1000:# OBSERVE:
                 minibatch = random.sample(D, BATCH)
                 input_image_data_batch = [d[0] for d in minibatch]
                 argmax_batch = [d[1] for d in minibatch]
@@ -185,8 +185,10 @@ def train_neural_network(input_image):
                 out_batch = predict_action.eval(feed_dict={input_image: input_image_data1_batch})
 
                 for i in range(0, len(minibatch)):
+                    import pdb;pdb.set_trace()
                     gt_batch.append(reward_batch[i] + LEARNING_RATE * np.max(out_batch[i]))
-
+                print ('gt_batch',gt_batch)
+                print ('argmax_batch',argmax_batch)
                 optimizer.run(feed_dict={gt: gt_batch, argmax: argmax_batch, input_image: input_image_data_batch})
 
             input_image_data = input_image_data1
@@ -195,7 +197,7 @@ def train_neural_network(input_image):
             if n % 10000 == 0:
                 saver.save(sess, './game.cpk', global_step=n)# 保存模型
 
-            print(n, "epsilon:", epsilon, " ", "action:", maxIndex, " ", "reward:", reward)
+            #print(n, "epsilon:", epsilon, " ", "action:", maxIndex, " ", "reward:", reward)
 
 
 train_neural_network(input_image)
